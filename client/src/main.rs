@@ -12,9 +12,9 @@ fn App() -> Html {
     html! {
         <BounceRoot>
             <main>
-                <div class="container mx-auto pt-24">
-                    <components::counter::Counter />
-                    <components::footer::Footer />
+                <div class="bg-black">
+                    <components::sidebar::Sidebar />
+                    <components::content::Content />
                 </div>
             </main>
         </BounceRoot>

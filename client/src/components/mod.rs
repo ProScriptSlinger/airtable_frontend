@@ -1,2 +1,2 @@
-pub mod counter;
-pub mod footer;
+pub mod sidebar;
+pub mod content;
