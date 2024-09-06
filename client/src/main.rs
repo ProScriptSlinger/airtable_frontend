@@ -12,7 +12,7 @@ fn App() -> Html {
     html! {
         <BounceRoot>
             <main>
-                <div class="bg-black">
+                <div class="bg-[#191919]">
                     <components::sidebar::Sidebar />
                     <components::content::Content />
                 </div>
