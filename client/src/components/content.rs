@@ -4,9 +4,12 @@ use crate::controllers::table::{Table, ContentType};
 use crate::components::dropdown::ColumnDropdown;
 use crate::components::drawer::Drawer;
 use crate::components::multi_select::CustomMultiSelect;
+use crate::components::subtask::{SubtaskComponent, Subtask, Status};
+use crate::components::attachment::{AttachmentComponent, Attachment, FileType};
+use crate::components::file_modal::{AddFileModal};
+use crate::components::subtask_modal::{SubtaskModal};
 use wasm_bindgen::JsCast;
 use web_sys;
-use web_sys::console;
 
 #[derive(Properties, PartialEq)]
 pub struct DisplayCellIconProps {
@@ -45,12 +48,13 @@ pub struct EditableCellProps {
     pub content_type: ContentType,
     pub content: Vec<String>,
     pub on_save: Callback<Vec<String>>,
+    pub toggle_modal: Callback<String>
 }
 
 #[function_component(EditableCell)]
 fn editable_cell(props: &EditableCellProps) -> Html {
     let props = props.clone();
-    let EditableCellProps { content_type, content, on_save } = props.clone();
+    let EditableCellProps { content_type, content, on_save, toggle_modal } = props.clone();
     let is_editing = use_state(|| false);
     let content_state = use_state(|| content.clone());
     
@@ -100,14 +104,62 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                             ("bg-pink-100", "text-pink-800", "dark:bg-pink-900", "dark:text-pink-300")
                         ];
 
-    let selected_values = use_state(|| vec![]);
-
     let handle_select_change = {
-        let selected_values = selected_values.clone();
+        let content_state = content_state.clone();
         Callback::from(move |values: Vec<String>| {
-            selected_values.set(values);
+            content_state.set(values);
         })
     };
+
+    fn get_file_type_icon(file_name: &str) -> &'static str {
+        if file_name.ends_with(".jpg") || file_name.ends_with(".jpeg") || file_name.ends_with(".png") {
+            "fas fa-image" // Image icon
+        } else if file_name.ends_with(".mp4") || file_name.ends_with(".avi") {
+            "fas fa-video" // Video icon
+        } else if file_name.ends_with(".pdf") || file_name.ends_with(".docx") {
+            "fas fa-file-alt" // Document icon
+        } else {
+            "fas fa-file" // Other files icon
+        }
+    }
+
+    
+    let subtasks = vec![
+        Subtask { 
+            name: "Subtask 1".to_string(), 
+            complete_rate: 50, 
+            status: Status::InProgress 
+        },
+        Subtask { 
+            name: "Subtask 2".to_string(), 
+            complete_rate: 100, 
+            status: Status::Completed 
+        },
+        Subtask { 
+            name: "Subtask 3".to_string(), 
+            complete_rate: 0, 
+            status: Status::NotStarted 
+        },
+    ];
+
+    let attachments = vec![
+        Attachment { 
+            name: "Attachment 1".to_string(), 
+            uri: "test_uri".to_string(), 
+            file_type: FileType::Image 
+        },
+        Attachment { 
+            name: "Attachment 2".to_string(), 
+            uri: "test_uri".to_string(), 
+            file_type: FileType::Video 
+        },
+        Attachment { 
+            name: "Attachment 3".to_string(), 
+            uri: "test_uri".to_string(), 
+            file_type: FileType::Document 
+        },
+    ];
+
     html! {
         if *is_editing {
             <div class="flex items-center gap-2">
@@ -116,8 +168,11 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                         ContentType::Text | ContentType::Url => html! {
                             <input type="text"  value={content_state[0].clone()} oninput={handle_change}  class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
-                        ContentType::SingleSelect | ContentType::MultipleSelect => html! {
-                            <CustomMultiSelect  handle_change={handle_select_change} value={(*content_state).clone()} />
+                        ContentType::SingleSelect  => html! {
+                            <CustomMultiSelect multiple={false} handle_change={handle_select_change} value={(*content_state).clone()} />
+                        },
+                        ContentType::MultipleSelect => html! {
+                            <CustomMultiSelect multiple={true} handle_change={handle_select_change} value={(*content_state).clone()} />
                         },
                         ContentType::Number => html! {
                             <input type="number"  value={content_state[0].clone()} oninput={handle_change} class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
@@ -136,11 +191,11 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                 <button onclick={handle_save} class="text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm w-full sm:w-auto p-1 text-center dark:border-gray-600 dark:hover:border-gray-700 dark:focus:ring-gray-800"><i class="fas fa-archive"></i></button>
             </div>
         } else {
-            <div class="cursor-pointer" onclick={toggle_editing}>
+            <div class="cursor-pointer">
                 {match content_type {
                     ContentType::SingleSelect | ContentType::MultipleSelect => {
                         html! {
-                            <>
+                            <div onclick={toggle_editing}>
                                 { for content_state.iter().enumerate().map(|(index, value)| {
                                     let (bg_class, text_class, dark_bg_class, dark_text_class) = badge_classes[index % badge_classes.len()];
                                     html! {
@@ -160,22 +215,22 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                                         </span>
                                     }
                                 }) }
-                            </>
+                            </div>
                         }
                     },
-                    // ContentType::Number => html! {
-                    //     <input type="number"  value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
-                    // },
-                    // ContentType::Date => html! {
-                    //     <input type="date" value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
-                    // },
+                    ContentType::Attachment => html! {
+                        <AttachmentComponent attachments={attachments.clone()} toggle_modal={toggle_modal}/>
+                    },
+                    ContentType::Subtask => html! {
+                        <SubtaskComponent subtasks={subtasks.clone()} toggle_modal={toggle_modal}/>
+                    },
                     ContentType::Checkbox => html! {
-                        <input id="default-checkbox" type="checkbox" checked={content_state[0] == "true"} onchange={handle_checkbox_change}  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                        <input onclick={toggle_editing} id="default-checkbox" type="checkbox" checked={content_state[0] == "true"} onchange={handle_checkbox_change}  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                     },
                     _ => html! {
-                        <span>
+                        <div  onclick={toggle_editing}>
                             { &content_state[0] }
-                        </span>
+                        </div>
                     }
                 }}
             </div>
@@ -185,6 +240,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
 
 #[function_component]
 pub fn Content() -> Html {
+    
     let table = use_atom_value::<Table>();
 
     let open_dropdowns = use_state::<Option<usize>, _>(|| None);
@@ -222,82 +278,127 @@ pub fn Content() -> Html {
             }
         }
     };
-    
+
+    // open file modal
+    let is_file_modal = use_state(|| false);
+
+    let toggle_file_modal = {
+        let is_file_modal = is_file_modal.clone();
+        move |_| {
+            is_file_modal.set(!*is_file_modal);
+        }
+    };
+
+    // open subtask modal
+    let is_subtask_modal = use_state(|| false);
+
+    let toggle_subtask_modal = {
+        let is_subtask_modal = is_subtask_modal.clone();
+        move |_| {
+            is_subtask_modal.set(!*is_subtask_modal);
+        }
+    };
+
+    // handle both modal
+    let toggle_modal = {
+        let toggle_subtask_modal = toggle_subtask_modal.clone();
+        let toggle_file_modal = toggle_file_modal.clone();
+        move |modal_type:String| {
+            if *modal_type == *"file" {
+                toggle_file_modal(());
+            }
+            else {
+                toggle_subtask_modal(());
+            }
+        }
+    };
+
 
     html! {
-        <div class="p-4 sm:ml-64 min-h-screen overflow-x-auto">
-            <div>
-                <h2 class="text-white">{table.name.clone()}</h2>
-                <hr class="border-gray-600 my-2"/>
-                <div class="flex">
-                    <div class="relative overflow-x-auto shadow-md sm:rounded-lg flex-col w-full" style="overflow:visible">
-                        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 h-fit">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                                <tr>
-                                    {for table.data[0].iter().enumerate().map(|(index, header)| {
-                                        let is_open = *open_dropdowns == Some(index);
-                                        html! { 
-                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" 
-                                                onmouseenter = {
-                                                    let toggle_dropdown = toggle_dropdown.clone();
-                                                    Callback::from(move |_| {
-                                                        toggle_dropdown(Some(index));
-                                                    })
-                                                }
-                                                onmouseleave={
-                                                    let toggle_dropdown = toggle_dropdown.clone();
-                                                    Callback::from(move |_| {
-                                                        toggle_dropdown(None);
-                                                    })
-                                                }
-                                            >
-                                                <div class="flex gap-x-2">
-                                                    <DisplayCellIcon content_type={header.content_type.clone()} />
-                                                    {header.content[0].clone()}
-                                                    <i class="fas fa-sort-desc mb-1"></i>
-                                                    <ColumnDropdown column_index={index} is_open={is_open}/>
-                                                </div>
-                                            </th> 
-                                        }
-                                    })}
-                                </tr>
-                            </thead>
-                            <tbody>
-                            {for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
-                                    <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700 ">
-                                        {for row.iter().enumerate().map(|(col_idx, cell)| html! { 
-                                            <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white border-r border-gray-600">
-                                                <EditableCell
-                                                    content_type={cell.content_type.clone()}
-                                                    content={cell.content.clone()}
-                                                    on_save={Callback::from({
-                                                        let update_cell_content = update_cell_content.clone();
-                                                        move |new_content: Vec<String>| {
-                                                            update_cell_content(row_idx + 1, col_idx, new_content);
-                                                        }
-                                                    })}
-                                                />
-                                            </th> 
+        <>
+            <div class="p-4 sm:ml-64 min-h-screen overflow-x-auto">
+                <div>
+                    <h2 class="text-white">{table.name.clone()}</h2>
+                    <hr class="border-gray-600 my-2"/>
+                    <div class="flex">
+                        <div class="relative overflow-x-auto shadow-md sm:rounded-lg flex-col w-full" style="overflow:visible">
+                            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 h-fit">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" >
+                                            <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                                        </th>
+                                        {for table.data[0].iter().enumerate().map(|(index, header)| {
+                                            let is_open = *open_dropdowns == Some(index);
+                                            html! { 
+                                                <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" 
+                                                    onmouseenter = {
+                                                        let toggle_dropdown = toggle_dropdown.clone();
+                                                        Callback::from(move |_| {
+                                                            toggle_dropdown(Some(index));
+                                                        })
+                                                    }
+                                                    onmouseleave={
+                                                        let toggle_dropdown = toggle_dropdown.clone();
+                                                        Callback::from(move |_| {
+                                                            toggle_dropdown(None);
+                                                        })
+                                                    }
+                                                >
+                                                    <div class="flex gap-x-2">
+                                                        <DisplayCellIcon content_type={header.content_type.clone()} />
+                                                        {header.content[0].clone()}
+                                                        <i class="fas fa-sort-desc mb-1"></i>
+                                                        <ColumnDropdown column_index={index} is_open={is_open}/>
+                                                    </div>
+                                                </th> 
+                                            }
                                         })}
                                     </tr>
-                                })}
-                            </tbody>
-                        </table>
-                        <div class="w-full bg-gray-800 hover:bg-gray-700 text-white cursor-pointer text-sm text-center py-4 border-r border-gray-600">
-                            <i class="fas fa-plus"></i>
+                                </thead>
+                                <tbody>
+                                {for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
+                                        <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700 ">
+                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" >
+                                                <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                                            </th>
+                                            {for row.iter().enumerate().map(|(col_idx, cell)| html! { 
+                                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white border-r border-gray-600">
+                                                    <EditableCell
+                                                        content_type={cell.content_type.clone()}
+                                                        content={cell.content.clone()}
+                                                        toggle_modal={toggle_modal.clone()}
+                                                        on_save={Callback::from({
+                                                            let update_cell_content = update_cell_content.clone();
+                                                            move |new_content: Vec<String>| {
+                                                                update_cell_content(row_idx + 1, col_idx, new_content);
+                                                            }
+                                                        })}
+                                                    />
+                                                </th> 
+                                            })}
+                                        </tr>
+                                    })}
+                                </tbody>
+                            </table>
+                            <div class="w-full bg-gray-800 hover:bg-gray-700 text-white cursor-pointer text-sm text-center py-4 border-r border-gray-600">
+                                <i class="fas fa-plus"></i>
+                            </div>
                         </div>
+                        <div class="w-20 bg-gray-700 hover:bg-gray-500 text-white cursor-pointer text-sm text-center py-4"
+                            onclick = {
+                                let toggle_drawer = toggle_drawer.clone();
+                                Callback::from(move |_: MouseEvent| {
+                                    toggle_drawer(());
+                                })
+                            }
+                        ><i class="fas fa-plus"></i></div>
                     </div>
-                    <div class="w-20 bg-gray-700 hover:bg-gray-500 text-white cursor-pointer text-sm text-center py-4"
-                        onclick = {
-                            let toggle_drawer = toggle_drawer.clone();
-                            Callback::from(move |_: MouseEvent| {
-                                toggle_drawer(());
-                            })
-                        }
-                    ><i class="fas fa-plus"></i></div>
                 </div>
-            </div>
-            <Drawer is_open={*open_drawer} toggle_drawer={toggle_drawer}/>
-        </div>
+                <Drawer is_open={*open_drawer} toggle_drawer={toggle_drawer}/>
+                </div>
+                <AddFileModal is_open={*is_file_modal} toggle_modal={toggle_file_modal.clone()}/>
+                <SubtaskModal is_open={*is_subtask_modal} toggle_modal={toggle_subtask_modal.clone()}/>
+        </>
     }
 }

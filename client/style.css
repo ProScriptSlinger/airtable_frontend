@@ -1,0 +1,25 @@
+.group:hover .group-hover\:block {
+    display: block;
+  }
+  
+  .group:hover .group-hover\:hidden {
+    display: none;
+  }
+  
+  .relative {
+    position: relative;
+  }
+  
+  .absolute {
+    position: absolute;
+  }
+
+  /* Add this CSS */
+.no-scrollbar {
+  overflow: hidden;
+}
+
+/* Additionally, if needed, ensure the body within the iframe also has no scrollbars */
+.no-scrollbar::before {
+  content: none !important; /* Hides the scrollbar */
+}

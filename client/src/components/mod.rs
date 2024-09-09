@@ -3,3 +3,7 @@ pub mod content;
 pub mod dropdown;
 pub mod drawer;
 pub mod multi_select;
+pub mod subtask;
+pub mod attachment;
+pub mod file_modal;
+pub mod subtask_modal;

@@ -38,7 +38,7 @@ impl Default for Table {
                     Cell { content: vec!["Date".to_string()], content_type: ContentType::Date },
                     Cell { content: vec!["Url".to_string()], content_type: ContentType::Url },
                     Cell { content: vec!["Checkbox".to_string()], content_type: ContentType::Checkbox },
-                    Cell { content: vec!["Photo".to_string()], content_type: ContentType::Attachment },
+                    Cell { content: vec!["Attchments".to_string()], content_type: ContentType::Attachment },
                     Cell { content: vec!["Subtask".to_string()], content_type: ContentType::Subtask },
                 ],
                 vec![
@@ -49,7 +49,7 @@ impl Default for Table {
                     Cell { content: vec!["2024-09-06".to_string()], content_type: ContentType::Date },
                     Cell { content: vec!["https://airtable.io".to_string()], content_type: ContentType::Url },
                     Cell { content: vec!["true".to_string()], content_type: ContentType::Checkbox },
-                    Cell { content: vec!["Photo".to_string()], content_type: ContentType::Attachment },
+                    Cell { content: vec!["a.jpg".to_string(), "b.mp4".to_string(), "c.pdf".to_string()], content_type: ContentType::Attachment },
                     Cell { content: vec!["task1".to_string(), "task2".to_string()], content_type: ContentType::Subtask },
                 ],
                 vec![
@@ -88,7 +88,7 @@ impl Default for Tables {
                             Cell { content: vec!["Date".to_string()], content_type: ContentType::Date },
                             Cell { content: vec!["Url".to_string()], content_type: ContentType::Url },
                             Cell { content: vec!["Checkbox".to_string()], content_type: ContentType::Checkbox },
-                            Cell { content: vec!["Photo".to_string()], content_type: ContentType::Attachment },
+                            Cell { content: vec!["Attachment".to_string()], content_type: ContentType::Attachment },
                             Cell { content: vec!["Subtask".to_string()], content_type: ContentType::Subtask },
                         ],
                         vec![
@@ -99,7 +99,7 @@ impl Default for Tables {
                             Cell { content: vec!["Row 1, Cell 5".to_string()], content_type: ContentType::Date },
                             Cell { content: vec!["Row 1, Cell 6".to_string()], content_type: ContentType::Url },
                             Cell { content: vec!["Row 1, Cell 7".to_string()], content_type: ContentType::Checkbox },
-                            Cell { content: vec!["Row 1, Cell 8".to_string()], content_type: ContentType::Attachment },
+                            Cell { content: vec!["a.jpg".to_string(), "b.mp4".to_string(), "c.pdf".to_string()], content_type: ContentType::Attachment },
                             Cell { content: vec!["Row 1, Cell 9".to_string()], content_type: ContentType::Subtask },
                         ],
                         vec![

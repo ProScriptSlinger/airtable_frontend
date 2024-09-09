@@ -28,8 +28,14 @@ pub fn Dropdown(props: &DropdownProps) -> Html {
                     </li>
                     <li>
                         <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
-                            <i class="fas fa-trash"></i>
-                            <span class="text-sm font-medium">{"Delete"}</span>
+                            <i class="fa fa-clone"></i>
+                            <span class="text-sm font-medium">{"Duplicate"}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                            <i class="fas fa-trash text-red-500"></i>
+                            <span class="text-sm font-medium text-red-500">{"Delete"}</span>
                         </a>
                     </li>
                 </ul>
@@ -72,8 +78,8 @@ pub fn ColumnDropdown(props: &ColumnDropdownProps) -> Html {
                     </li>
                     <li>
                         <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
-                            <i class="fas fa-trash text-danger"></i>
-                            <span style="text-transform: none;" class="text-sm font-medium">{"Delete"}</span>
+                            <i class="fas fa-trash text-red-500"></i>
+                            <span style="text-transform: none;" class="text-sm font-medium text-red-500">{"Delete"}</span>
                         </a>
                     </li>
                 </ul>

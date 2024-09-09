@@ -1,19 +1,16 @@
-use wasm_bindgen::JsCast;
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
-use yew::virtual_dom::VNode;
-use yew::html::Scope;
-// use yew::use_effect_with_deps;
+use yew::functional::use_effect_with;
+use web_sys::console;
 
-#[derive(Properties, PartialEq)]
+#[derive(Properties, PartialEq, Clone)]
 pub struct CustomMultiSelectProps {
     pub handle_change: Callback<Vec<String>>,
     pub value: Vec<String>,
+    pub multiple: bool,
 }
 
 #[function_component(CustomMultiSelect)]
 pub fn my_component(props: &CustomMultiSelectProps) -> Html {
-    
     let badge_classes = [
         ("bg-blue-100", "text-blue-800", "dark:bg-blue-900", "dark:text-blue-300"),
         ("bg-gray-100", "text-gray-800", "dark:bg-gray-700", "dark:text-gray-300"),
@@ -23,24 +20,25 @@ pub fn my_component(props: &CustomMultiSelectProps) -> Html {
         ("bg-indigo-100", "text-indigo-800", "dark:bg-indigo-900", "dark:text-indigo-300"),
         ("bg-purple-100", "text-purple-800", "dark:bg-purple-900", "dark:text-purple-300"),
         ("bg-pink-100", "text-pink-800", "dark:bg-pink-900", "dark:text-pink-300")
-        ];
-        
-    let dropdown_open = use_state(|| false);
-    let selected_values = use_state_eq(|| vec!["Jose".to_string(),"Abel".to_string(), "Hardy".to_string()]);
-    let content_state = vec!["Jose".to_string(),"Abel".to_string(), "Hardy".to_string(), "Stanley".to_string(), "Brondon".to_string()];
+    ];
 
-    // {
-    //     let selected_values = selected_values.clone();
-    //     let props_value = props.value.clone();
-        
-    //     use_effect_with_deps(
-    //         move |props_value| {
-    //             selected_values.set(props_value.clone());
-    //             || ()
-    //         },
-    //         props.value.clone(), // Pass directly as a dependency
-    //     );
-    // }
+    let dropdown_open = use_state(|| false);
+    let selected_values = use_state_eq(|| props.value.clone());
+    let content_state = vec!["Jose".to_string(), "Abel".to_string(), "Hardy".to_string(), "Stanley".to_string(), "Brondon".to_string()];
+
+    // Sync selected_values with props.value changes
+    {
+        let selected_values = selected_values.clone();
+        let props_value = props.value.clone();
+
+        use_effect_with(
+            props_value.clone(),
+            move |_| {
+                selected_values.set(props_value.to_vec());
+                || ()
+            }
+        );
+    }
 
     let toggle_dropdown = {
         let dropdown_open = dropdown_open.clone();
@@ -50,13 +48,20 @@ pub fn my_component(props: &CustomMultiSelectProps) -> Html {
     let handle_select_change = {
         let selected_values = selected_values.clone();
         let handle_change = props.handle_change.clone();
+        let multiple = props.multiple; // Clone the multiple property
         Callback::from(move |value: String| {
-            let mut new_selected = (*selected_values).clone();
-            if new_selected.contains(&value) {
-                new_selected.retain(|v| v != &value);
+            let new_selected = if multiple {
+                let mut updated_selected = (*selected_values).clone();
+                if updated_selected.contains(&value) {
+                    updated_selected.retain(|v| v != &value);
+                } else {
+                    updated_selected.push(value);
+                }
+                updated_selected
             } else {
-                new_selected.push(value);
-            }
+                vec![value]
+            };
+            console::log_2(&"hello world".into(), &format!("{:?}", new_selected.to_vec()).into());
             selected_values.set(new_selected.clone());
             handle_change.emit(new_selected);
         })
@@ -69,6 +74,7 @@ pub fn my_component(props: &CustomMultiSelectProps) -> Html {
             let mut new_selected = (*selected_values).clone();
             new_selected.retain(|v| v != &value);
             selected_values.set(new_selected.clone());
+            console::log_2(&"hello world".into(), &format!("{:?}", new_selected.to_vec()).into());
             handle_change.emit(new_selected);
         })
     };
@@ -77,7 +83,7 @@ pub fn my_component(props: &CustomMultiSelectProps) -> Html {
         let (bg_class, text_class, dark_bg_class, dark_text_class) = badge_classes[index % badge_classes.len()];
         let value_clone = value.clone();
         let remove_badge = remove_badge.clone();
-        
+
         html! {
             <span class={classes!(
                 "inline-flex",
