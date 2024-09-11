@@ -5,6 +5,7 @@ use yew::prelude::*;
 
 mod components;
 mod controllers;
+mod apis;
 
 
 #[function_component]

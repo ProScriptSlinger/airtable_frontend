@@ -17,25 +17,25 @@ pub enum FileType {
     Others
 }
 
-fn serialize_attachments(attachments: &[Attachment]) -> Vec<String> {
-    attachments.iter()
-        .map(|attachment| serde_json::to_string(attachment).unwrap())
-        .collect()
-}
+// fn serialize_attachments(attachments: &[Attachment]) -> Vec<String> {
+//     attachments.iter()
+//         .map(|attachment| serde_json::to_string(attachment).unwrap())
+//         .collect()
+// }
 
-fn deserialize_attachments(serialized_attachments: &[String]) -> Vec<Attachment> {
-    serialized_attachments.iter()
-        .map(|serialized| serde_json::from_str(serialized).unwrap())
-        .collect()
-}
+// fn deserialize_attachments(serialized_attachments: &[String]) -> Vec<Attachment> {
+//     serialized_attachments.iter()
+//         .map(|serialized| serde_json::from_str(serialized).unwrap())
+//         .collect()
+// }
 
-// // Serialize
-// let serialized_subtasks = serialize_subtasks(&subtasks);
-// console::log_1(&format!("Serialized Subtasks: {:?}", serialized_subtasks).into());
+// // // Serialize
+// // let serialized_subtasks = serialize_subtasks(&subtasks);
+// // console::log_1(&format!("Serialized Subtasks: {:?}", serialized_subtasks).into());
 
-// // Deserialize
-// let deserialized_subtasks = deserialize_subtasks(&serialized_subtasks);
-// console::log_1(&format!("Deserialized Subtasks: {:?}", deserialized_subtasks).into());
+// // // Deserialize
+// // let deserialized_subtasks = deserialize_subtasks(&serialized_subtasks);
+// // console::log_1(&format!("Deserialized Subtasks: {:?}", deserialized_subtasks).into());
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct AttachmentRowProps {

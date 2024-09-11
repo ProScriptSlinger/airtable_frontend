@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use bounce::{use_atom_value, use_atom};
-use crate::controllers::table::{Table, ContentType};
+use crate::controllers::table::{Table, Tables, Cell, ContentType, serialize_table, deserialize_table};
 use crate::components::dropdown::ColumnDropdown;
 use crate::components::drawer::Drawer;
 use crate::components::multi_select::CustomMultiSelect;
@@ -8,8 +8,14 @@ use crate::components::subtask::{SubtaskComponent, Subtask, Status};
 use crate::components::attachment::{AttachmentComponent, Attachment, FileType};
 use crate::components::file_modal::{AddFileModal};
 use crate::components::subtask_modal::{SubtaskModal};
+use crate::apis::table_api::{fetch_table, post_table, put_table, delete_table, SimpleTableItem};
 use wasm_bindgen::JsCast;
 use web_sys;
+use yew::functional::use_effect_with;
+use serde::Deserialize;
+use yew::prelude::*;
+use std::rc::Rc;
+use wasm_bindgen::JsError;
 
 #[derive(Properties, PartialEq)]
 pub struct DisplayCellIconProps {
@@ -50,6 +56,90 @@ pub struct EditableCellProps {
     pub on_save: Callback<Vec<String>>,
     pub toggle_modal: Callback<String>
 }
+
+// fetch tables
+pub async fn fetch_tables() -> Result<Vec<Table>, JsError> {
+    
+    match fetch_table().await {
+        Ok(fetched_data) => {
+            let tables: Vec<Table> = fetched_data.iter()
+            .map(|item| deserialize_table(item))
+            .collect();
+            // Log fetched data to the console (for debugging)
+            // web_sys::console::log_1(&format!("Deserialized Tables: {:?}", tables).into());
+            Ok(tables)
+        },
+        Err(e) => {
+            // web_sys::console::error_1(&format!("Failed to save table: {:?}", e).into());
+            Err(e)
+        }
+    }
+}
+
+// Create new table function
+pub async fn create_table(table_title: String) -> Result<(), JsError> {
+    let new_table =  Table {
+        id: "default_id".to_string(),
+        title: table_title,
+        data: vec![
+            vec![
+                Cell { content: vec!["Label".to_string()], content_type: ContentType::Text },
+                Cell { content: vec!["Number".to_string()], content_type: ContentType::Number },
+                Cell { content: vec!["Status".to_string()], content_type: ContentType::SingleSelect },
+            ],
+            vec![
+                Cell { content: vec!["".to_string()], content_type: ContentType::Text },
+                Cell { content: vec!["".to_string()], content_type: ContentType::Number },
+                Cell { content: vec!["".to_string()], content_type: ContentType::SingleSelect }
+            ],
+        ],
+    };
+
+    let table_item = serialize_table(&new_table);
+
+    match post_table(table_item).await {
+        Ok(_) => {
+            web_sys::console::log_1(&"Table created successfully".into());
+            Ok(())
+        },
+        Err(e) => {
+            // web_sys::console::error_1(&format!("Failed to save table: {:?}", e).into());
+            Err(e)
+        }
+    }
+}
+
+// Update table function by id
+pub async fn update_table(new_table: Table) -> Result<(), JsError> {
+    let table_item = serialize_table(&new_table);
+
+    match put_table(table_item).await {
+        Ok(_) => {
+            web_sys::console::log_1(&"Table updated successfully".into());
+            Ok(())
+        },
+        Err(e) => {
+            // web_sys::console::error_1(&format!("Failed to save table: {:?}", e).into());
+            Err(e)
+        }
+    }
+}
+
+// Delete table function by id
+pub async fn delete_table_func(table_id: String) -> Result<(), JsError> {
+
+    match delete_table(table_id).await {
+        Ok(_) => {
+            web_sys::console::log_1(&"Table deleted successfully".into());
+            Ok(())
+        },
+        Err(e) => {
+            // web_sys::console::error_1(&format!("Failed to save table: {:?}", e).into());
+            Err(e)
+        }
+    }
+}
+
 
 #[function_component(EditableCell)]
 fn editable_cell(props: &EditableCellProps) -> Html {
@@ -111,17 +201,17 @@ fn editable_cell(props: &EditableCellProps) -> Html {
         })
     };
 
-    fn get_file_type_icon(file_name: &str) -> &'static str {
-        if file_name.ends_with(".jpg") || file_name.ends_with(".jpeg") || file_name.ends_with(".png") {
-            "fas fa-image" // Image icon
-        } else if file_name.ends_with(".mp4") || file_name.ends_with(".avi") {
-            "fas fa-video" // Video icon
-        } else if file_name.ends_with(".pdf") || file_name.ends_with(".docx") {
-            "fas fa-file-alt" // Document icon
-        } else {
-            "fas fa-file" // Other files icon
-        }
-    }
+    // fn get_file_type_icon(file_name: &str) -> &'static str {
+    //     if file_name.ends_with(".jpg") || file_name.ends_with(".jpeg") || file_name.ends_with(".png") {
+    //         "fas fa-image" // Image icon
+    //     } else if file_name.ends_with(".mp4") || file_name.ends_with(".avi") {
+    //         "fas fa-video" // Video icon
+    //     } else if file_name.ends_with(".pdf") || file_name.ends_with(".docx") {
+    //         "fas fa-file-alt" // Document icon
+    //     } else {
+    //         "fas fa-file" // Other files icon
+    //     }
+    // }
 
     
     let subtasks = vec![
@@ -166,7 +256,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                 {
                     match content_type {
                         ContentType::Text | ContentType::Url => html! {
-                            <input type="text"  value={content_state[0].clone()} oninput={handle_change}  class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="text"  value={content_state[0].clone()} oninput={handle_change}  class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
                         ContentType::SingleSelect  => html! {
                             <CustomMultiSelect multiple={false} handle_change={handle_select_change} value={(*content_state).clone()} />
@@ -175,16 +265,16 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                             <CustomMultiSelect multiple={true} handle_change={handle_select_change} value={(*content_state).clone()} />
                         },
                         ContentType::Number => html! {
-                            <input type="number"  value={content_state[0].clone()} oninput={handle_change} class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="number"  value={content_state[0].clone()} oninput={handle_change} class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
                         ContentType::Date => html! {
-                            <input type="date" value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="date" value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
                         ContentType::Checkbox => html! {
                             <input id="default-checkbox" type="checkbox" checked={content_state[0] == "true"} onchange={handle_checkbox_change}  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                         },
                         _ => html! {
-                            <input type="checkbox" value={content_state[0].clone()} oninput={handle_change} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="checkbox" value={content_state[0].clone()} oninput={handle_change} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         }
                     }
                 }
@@ -242,6 +332,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
 pub fn Content() -> Html {
     
     let table = use_atom_value::<Table>();
+    let tables = use_atom_value::<Tables>();
 
     let open_dropdowns = use_state::<Option<usize>, _>(|| None);
     let toggle_dropdown = {
@@ -250,7 +341,46 @@ pub fn Content() -> Html {
             open_dropdowns.set(index);
         }
     };
+    
+    let table_handle = use_atom::<Table>();
+    let tables_handle = use_atom::<Tables>();
+    // api functions
+    let fetched_table = use_state(|| Rc::new(Vec::new()));
+    {
+        let table_handle = table_handle.clone(); 
+        let tables_handle = tables_handle.clone(); 
+        let fetched_table = fetched_table.clone();
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                match fetch_table().await {
+                    Ok(fetched_data) => {
 
+                        let tables: Vec<Table> = fetched_data.iter()
+                            .map(|item| deserialize_table(item))
+                            .collect();
+                         // Wrap the Vec<Table> in the Tables struct
+                        let tables_struct = Tables { tables: tables.clone() };
+
+                        // Update state with fetched data
+                        fetched_table.set(Rc::new(fetched_data.clone()));
+                        tables_handle.set(tables_struct);
+                        table_handle.set(tables[0].clone());
+                        // Log fetched data to the console (for debugging)
+                        // web_sys::console::log_1(&format!("Fetched Items: {:?}", fetched_data).into());
+                        // web_sys::console::log_1(&format!("Deserialized Tables: {:?}", tables).into());
+                    },
+                    Err(err) => {
+                        // Handle the error case
+                        // web_sys::console::error_1(&format!("Error fetching data: {}", err.as_string().unwrap_or_else(|| "Unknown error".to_string())).into());
+                    }
+                }
+            });
+            
+            || ()
+        });
+    }
+
+    
     let open_drawer = use_state(|| false);
 
     let toggle_drawer = {
@@ -260,7 +390,6 @@ pub fn Content() -> Html {
         }
     };
 
-    let table_handle = use_atom::<Table>();
     let update_cell_content = {
         let table_handle = table_handle.clone(); // Clone if necessary for use inside closure
         let table = (*table).clone(); // Dereference Rc and clone Table
@@ -318,7 +447,7 @@ pub fn Content() -> Html {
         <>
             <div class="p-4 sm:ml-64 min-h-screen overflow-x-auto">
                 <div>
-                    <h2 class="text-white">{table.name.clone()}</h2>
+                    <h2 class="text-white">{table.title.clone()}</h2>
                     <hr class="border-gray-600 my-2"/>
                     <div class="flex">
                         <div class="relative overflow-x-auto shadow-md sm:rounded-lg flex-col w-full" style="overflow:visible">
@@ -357,7 +486,7 @@ pub fn Content() -> Html {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                {for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
+                                    {for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
                                         <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700 ">
                                             <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" >
                                                 <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>

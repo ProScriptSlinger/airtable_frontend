@@ -2,47 +2,60 @@ use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct DropdownProps {
-    pub table_index: usize,
-    pub is_open: bool
+    pub table_id: String,
+    pub is_open: bool,
+    pub delete_table: Callback<MouseEvent>,
+    pub set_renaming_id: Callback<Option<String>>,
 }
 
 #[function_component]
 pub fn Dropdown(props: &DropdownProps) -> Html {
-    let DropdownProps { table_index, is_open } = props;
+    let DropdownProps { table_id, is_open, delete_table, set_renaming_id } = props;
+
+    
+    let on_rename_click = {
+        let set_renaming_id = set_renaming_id.clone();
+        let table_id = table_id.clone();
+        Callback::from(move |_| set_renaming_id.emit(Some(table_id.clone())))
+    };
 
     html! {
         if *is_open {
-            <div id={format!("dropdown-{}", table_index)} class="absolute flex-col justify-end py-1 mb-2 space-y-2 bg-white border border-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:border-gray-600 top-4 right-1 z-50 ">
+            <div id={format!("dropdown-{}", table_id)} class="absolute flex-col justify-end py-1 mb-2 space-y-2 bg-white border border-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:border-gray-600 top-4 right-1 z-50">
                 <ul class="text-sm text-gray-500 dark:text-gray-300">
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white"
+                            onclick={on_rename_click}
+                            
+                        >
                             <i class="fas fa-edit"></i>
                             <span class="text-sm font-medium">{"Rename"}</span>
-                        </a>
+                        </div>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <a class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-cogs"></i>
                             <span class="text-sm font-medium">{"Design"}</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <a class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fa fa-clone"></i>
                             <span class="text-sm font-medium">{"Duplicate"}</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div onclick={delete_table.clone()} class="flex space-x-2 items-center px-5 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-trash text-red-500"></i>
                             <span class="text-sm font-medium text-red-500">{"Delete"}</span>
-                        </a>
+                        </div>
                     </li>
                 </ul>
             </div>
         }
     }
 }
+
 
 #[derive(Properties, PartialEq)]
 pub struct ColumnDropdownProps {
