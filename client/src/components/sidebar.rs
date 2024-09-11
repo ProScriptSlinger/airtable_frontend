@@ -137,10 +137,8 @@ pub fn Sidebar() -> Html {
                 let matching_table = tables_handle.borrow().tables.iter().find(|table| table.id == *renaming_id).cloned();
                 
                 if let Some(existing_table) = matching_table {
-                    let id_parts: Vec<&str> = renaming_id.split(':').collect();
-                    let table_id = id_parts.get(1).unwrap_or(&"").to_string();
                     let new_table = Table {
-                        id: table_id.clone(),
+                        id: renaming_id.clone(),
                         title: (*new_name).clone(),
                         data: existing_table.data.clone(), // Copy data from the matching table
                     };
@@ -158,7 +156,7 @@ pub fn Sidebar() -> Html {
                                         tables_handle_clone.borrow_mut().set(tables_struct);
     
                                         if let Some(first_table) = tables.first() {
-                                            table_handle_clone.borrow_mut().set(first_table.clone());
+                                            table_handle_clone.borrow_mut().set(new_table.clone());
                                         }
                                         // renaming_id_handle.set(None);
                                     },
@@ -234,6 +232,7 @@ pub fn Sidebar() -> Html {
                                                         onclick={{
                                                             let table = table_clone.clone();
                                                             Callback::from(move |_| {
+                                                                web_sys::console::log_1(&format!("Table------> {:?}",table.clone()).into());
                                                                 setter.borrow_mut().set(table.clone());
                                                             })
                                                         }}>

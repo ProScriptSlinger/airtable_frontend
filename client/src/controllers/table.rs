@@ -2,6 +2,7 @@ use bounce::Atom;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 use crate::apis::table_api::SimpleTableItem;
+use yew::functional::UseStateHandle;
 
 // Assuming this is how your Attachment struct looks like
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -21,6 +22,41 @@ pub enum ContentType {
     Attachment,
     Subtask,
 }
+
+impl ToString for ContentType {
+    fn to_string(&self) -> String {
+        match self {
+            ContentType::Text => "text".to_string(),
+            ContentType::Number => "number".to_string(),
+            ContentType::SingleSelect => "single_select".to_string(),
+            ContentType::MultipleSelect => "multiple_select".to_string(),
+            ContentType::Date => "date".to_string(),
+            ContentType::Url => "url".to_string(),
+            ContentType::Checkbox => "checkbox".to_string(),
+            ContentType::Attachment => "attachment".to_string(),
+            ContentType::Subtask => "subtask".to_string(),
+            // Handle other variants as strings...
+        }
+    }
+}
+
+impl From<UseStateHandle<String>> for ContentType {
+    fn from(state: UseStateHandle<String>) -> Self {
+        match &**state {
+            "text" => ContentType::Text,
+            "number" => ContentType::Number,
+            "single_select" => ContentType::SingleSelect,
+            "multiple_select" => ContentType::MultipleSelect,
+            "date" => ContentType::Date,
+            "url" => ContentType::Url,
+            "checkbox" => ContentType::Checkbox,
+            "attachment" => ContentType::Attachment,
+            "subtask" => ContentType::Subtask,
+            _ => ContentType::Text, // Default case (or consider returning an error)
+        }
+    }
+}
+
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Cell {
@@ -42,26 +78,10 @@ impl Default for Table {
             title: "Table 1".to_string(),
             data: vec![
                 vec![
-                    Cell { content: vec!["Name".to_string()], content_type: ContentType::Text },
-                    Cell { content: vec!["Age".to_string()], content_type: ContentType::Number },
-                    Cell { content: vec!["Device Type".to_string()], content_type: ContentType::SingleSelect },
-                    Cell { content: vec!["Current Owner".to_string()], content_type: ContentType::MultipleSelect },
-                    Cell { content: vec!["Date".to_string()], content_type: ContentType::Date },
-                    Cell { content: vec!["Url".to_string()], content_type: ContentType::Url },
-                    Cell { content: vec!["Checkbox".to_string()], content_type: ContentType::Checkbox },
-                    Cell { content: vec!["Attachments".to_string()], content_type: ContentType::Attachment },
-                    Cell { content: vec!["Subtask".to_string()], content_type: ContentType::Subtask },
-                ],
-                vec![
-                    Cell { content: vec!["Jose".to_string()], content_type: ContentType::Text },
-                    Cell { content: vec!["24".to_string()], content_type: ContentType::Number },
-                    Cell { content: vec!["Mac".to_string()], content_type: ContentType::SingleSelect },
-                    Cell { content: vec!["Jose".to_string(), "Abel".to_string(), "Hardy".to_string()], content_type: ContentType::MultipleSelect },
-                    Cell { content: vec!["2024-09-06".to_string()], content_type: ContentType::Date },
-                    Cell { content: vec!["https://airtable.io".to_string()], content_type: ContentType::Url },
-                    Cell { content: vec!["true".to_string()], content_type: ContentType::Checkbox },
-                    Cell { content: vec!["a.jpg".to_string(), "b.mp4".to_string(), "c.pdf".to_string()], content_type: ContentType::Attachment },
-                    Cell { content: vec!["task1".to_string(), "task2".to_string()], content_type: ContentType::Subtask },
+                    Cell { content: vec!["1".to_string()], content_type: ContentType::Text },
+                    Cell { content: vec!["2".to_string()], content_type: ContentType::Number },
+                    Cell { content: vec!["3".to_string()], content_type: ContentType::SingleSelect },
+                    
                 ],
             ],
         }
@@ -104,26 +124,10 @@ impl Default for Tables {
                     title: "Table 1".to_string(),
                     data: vec![
                         vec![
-                            Cell { content: vec!["Name".to_string()], content_type: ContentType::Text },
-                            Cell { content: vec!["Age".to_string()], content_type: ContentType::Number },
-                            Cell { content: vec!["Device Type".to_string()], content_type: ContentType::SingleSelect },
-                            Cell { content: vec!["Current Owner".to_string()], content_type: ContentType::MultipleSelect },
-                            Cell { content: vec!["Date".to_string()], content_type: ContentType::Date },
-                            Cell { content: vec!["Url".to_string()], content_type: ContentType::Url },
-                            Cell { content: vec!["Checkbox".to_string()], content_type: ContentType::Checkbox },
-                            Cell { content: vec!["Attachment".to_string()], content_type: ContentType::Attachment },
-                            Cell { content: vec!["Subtask".to_string()], content_type: ContentType::Subtask },
-                        ],
-                        vec![
-                            Cell { content: vec!["Jose".to_string()], content_type: ContentType::Text },
-                            Cell { content: vec!["24".to_string()], content_type: ContentType::Number },
-                            Cell { content: vec!["Mac".to_string()], content_type: ContentType::SingleSelect },
-                            Cell { content: vec!["Jose".to_string(), "Abel".to_string(), "Hardy".to_string()], content_type: ContentType::MultipleSelect },
-                            Cell { content: vec!["2024-09-06".to_string()], content_type: ContentType::Date },
-                            Cell { content: vec!["https://airtable.io".to_string()], content_type: ContentType::Url },
-                            Cell { content: vec!["true".to_string()], content_type: ContentType::Checkbox },
-                            Cell { content: vec!["a.jpg".to_string(), "b.mp4".to_string(), "c.pdf".to_string()], content_type: ContentType::Attachment },
-                            Cell { content: vec!["task1".to_string(), "task2".to_string()], content_type: ContentType::Subtask },
+                            Cell { content: vec!["1".to_string()], content_type: ContentType::Text },
+                            Cell { content: vec!["2".to_string()], content_type: ContentType::Number },
+                            Cell { content: vec!["3".to_string()], content_type: ContentType::SingleSelect },
+                            
                         ],
                     ],
                 }

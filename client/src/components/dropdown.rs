@@ -1,4 +1,5 @@
 use yew::prelude::*;
+use std::rc::Rc;
 
 #[derive(Properties, PartialEq)]
 pub struct DropdownProps {
@@ -57,48 +58,82 @@ pub fn Dropdown(props: &DropdownProps) -> Html {
 }
 
 
-#[derive(Properties, PartialEq)]
+#[derive(Properties)]
 pub struct ColumnDropdownProps {
     pub column_index: usize,
-    pub is_open: bool
+    pub is_open: bool,
+    pub set_col_id: Callback<Option<String>>,
+    pub insert_column: Rc<dyn Fn(usize, &str)>,
+    pub delete_column: Rc<dyn Fn(usize)>,
 }
 
-#[function_component]
-pub fn ColumnDropdown(props: &ColumnDropdownProps) -> Html {
-    let ColumnDropdownProps { column_index, is_open } = props;
+impl PartialEq for ColumnDropdownProps {
+    fn eq(&self, other: &Self) -> bool {
+        self.column_index == other.column_index &&
+        self.is_open == other.is_open &&
+        self.set_col_id == other.set_col_id
+    }
+}
+
+#[function_component(ColumnDropdown)]
+pub fn column_dropdown(props: &ColumnDropdownProps) -> Html {
+    let ColumnDropdownProps { column_index, is_open, set_col_id, insert_column, delete_column } = props;
+
+    let on_rename_click = {
+        let set_col_id = set_col_id.clone();
+        let col_id = column_index.clone();
+        Callback::from(move |_| set_col_id.emit(Some(col_id.clone().to_string())))
+    };
+    
+    let on_insert_left_click = {
+        let insert_column = insert_column.clone();
+        let col_id = column_index.clone();
+        Callback::from(move |_| insert_column(col_id, "left"))
+    };
+
+    let on_insert_right_click = {
+        let insert_column = insert_column.clone();
+        let col_id = column_index.clone();
+        Callback::from(move |_| insert_column(col_id, "right"))
+    };
+
+    let on_delete_click = {
+        let delete_column = delete_column.clone();
+        let col_id = column_index.clone();
+        Callback::from(move |_| delete_column(col_id))
+    };
 
     html! {
         if *is_open {
-            <div id={format!("speed-dial-menu-dropdown-alternative-square-{}", column_index)} class="flex flex-col w-40 justify-end py-1 mb-4 space-y-2 bg-white border border-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:border-gray-600 absolute  top-8 left-4 z-50 ">
+            <div id={format!("speed-dial-menu-dropdown-alternative-square-{}", column_index)} class="flex flex-col w-40 justify-end py-1 mb-4 space-y-2 bg-white border border-gray-100 rounded-lg shadow-sm dark:bg-gray-700 dark:border-gray-600 absolute top-8 left-4 z-50">
                 <ul class="text-sm text-gray-500 dark:text-gray-300">
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2  border-b border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div onclick={on_rename_click} class="flex space-x-2 items-center px-5 py-2 border-b border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-pencil"></i>
                             <span style="text-transform: none;" class="text-sm font-medium">{"Edit field"}</span>
-                        </a>
+                        </div>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2  hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div onclick={on_insert_left_click} class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-arrow-left"></i>
                             <span style="text-transform: none;" class="text-sm font-medium">{"Insert left"}</span>
-                        </a>
+                        </div>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 border-b border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div onclick={on_insert_right_click} class="flex space-x-2 items-center px-5 py-2 border-b border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-arrow-right"></i>
                             <span style="text-transform: none;" class="text-sm font-medium">{"Insert right"}</span>
-                        </a>
+                        </div>
                     </li>
                     <li>
-                        <a href="#" class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div onclick={on_delete_click} class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
                             <i class="fas fa-trash text-red-500"></i>
                             <span style="text-transform: none;" class="text-sm font-medium text-red-500">{"Delete"}</span>
-                        </a>
+                        </div>
                     </li>
                 </ul>
             </div>
         }
     }
 }
-
 

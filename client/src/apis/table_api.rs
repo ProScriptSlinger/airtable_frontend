@@ -62,7 +62,11 @@ pub async fn post_table(item: SimpleTableItem) -> Result<(), JsError> {
 
 pub async fn put_table(item: SimpleTableItem) -> Result<(), JsError> {
     // Extract the ID to construct the proper URL
-    let table_id = item.id.clone().unwrap_or_else(|| "unknown_id".to_string());
+    let table_id_with_prefix = item.id.clone().unwrap_or_else(|| "unknown_id".to_string());
+
+    let id_parts: Vec<&str> = table_id_with_prefix.split(':').collect();
+    let table_id = id_parts.get(1).unwrap_or(&"").to_string();
+    web_sys::console::error_1(&format!("table id ------> {:?}", table_id).into());
     let url = format!("http://127.0.0.1:9090/tables/{}", table_id);
     
     let body = json!(item).to_string();

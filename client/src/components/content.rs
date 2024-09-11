@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use bounce::{use_atom_value, use_atom};
+use bounce::{use_atom_value, use_atom, UseAtomHandle};
 use crate::controllers::table::{Table, Tables, Cell, ContentType, serialize_table, deserialize_table};
 use crate::components::dropdown::ColumnDropdown;
 use crate::components::drawer::Drawer;
@@ -16,6 +16,8 @@ use serde::Deserialize;
 use yew::prelude::*;
 use std::rc::Rc;
 use wasm_bindgen::JsError;
+use wasm_bindgen_futures::spawn_local;
+use web_sys::{HtmlInputElement,HtmlSelectElement , MouseEvent};
 
 #[derive(Properties, PartialEq)]
 pub struct DisplayCellIconProps {
@@ -88,9 +90,9 @@ pub async fn create_table(table_title: String) -> Result<(), JsError> {
                 Cell { content: vec!["Status".to_string()], content_type: ContentType::SingleSelect },
             ],
             vec![
-                Cell { content: vec!["".to_string()], content_type: ContentType::Text },
-                Cell { content: vec!["".to_string()], content_type: ContentType::Number },
-                Cell { content: vec!["".to_string()], content_type: ContentType::SingleSelect }
+                Cell { content: vec!["default".to_string()], content_type: ContentType::Text },
+                Cell { content: vec!["default".to_string()], content_type: ContentType::Number },
+                Cell { content: vec!["default".to_string()], content_type: ContentType::SingleSelect }
             ],
         ],
     };
@@ -318,7 +320,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                         <input onclick={toggle_editing} id="default-checkbox" type="checkbox" checked={content_state[0] == "true"} onchange={handle_checkbox_change}  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                     },
                     _ => html! {
-                        <div  onclick={toggle_editing}>
+                        <div  onclick={toggle_editing} class="min-w-20 min-h-4 cursor-pointer">
                             { &content_state[0] }
                         </div>
                     }
@@ -327,13 +329,10 @@ fn editable_cell(props: &EditableCellProps) -> Html {
         }
     }
 }
-
-#[function_component]
-pub fn Content() -> Html {
-    
+#[function_component(Content)]
+pub fn content() -> Html {
     let table = use_atom_value::<Table>();
     let tables = use_atom_value::<Tables>();
-
     let open_dropdowns = use_state::<Option<usize>, _>(|| None);
     let toggle_dropdown = {
         let open_dropdowns = open_dropdowns.clone();
@@ -341,46 +340,40 @@ pub fn Content() -> Html {
             open_dropdowns.set(index);
         }
     };
-    
-    let table_handle = use_atom::<Table>();
-    let tables_handle = use_atom::<Tables>();
+
+    let table_handle: UseAtomHandle<Table> = use_atom::<Table>();
+    let tables_handle: UseAtomHandle<Tables> = use_atom::<Tables>();
+
     // api functions
     let fetched_table = use_state(|| Rc::new(Vec::new()));
     {
-        let table_handle = table_handle.clone(); 
-        let tables_handle = tables_handle.clone(); 
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
         let fetched_table = fetched_table.clone();
         use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
                 match fetch_table().await {
                     Ok(fetched_data) => {
-
                         let tables: Vec<Table> = fetched_data.iter()
-                            .map(|item| deserialize_table(item))
+                            .map(|item: &SimpleTableItem| deserialize_table(item))
                             .collect();
-                         // Wrap the Vec<Table> in the Tables struct
                         let tables_struct = Tables { tables: tables.clone() };
-
-                        // Update state with fetched data
                         fetched_table.set(Rc::new(fetched_data.clone()));
                         tables_handle.set(tables_struct);
-                        table_handle.set(tables[0].clone());
-                        // Log fetched data to the console (for debugging)
-                        // web_sys::console::log_1(&format!("Fetched Items: {:?}", fetched_data).into());
-                        // web_sys::console::log_1(&format!("Deserialized Tables: {:?}", tables).into());
+                        if let Some(first_table) = tables.first() {
+                            table_handle.set(first_table.clone());
+                        }
                     },
-                    Err(err) => {
+                    Err(_) => {
                         // Handle the error case
-                        // web_sys::console::error_1(&format!("Error fetching data: {}", err.as_string().unwrap_or_else(|| "Unknown error".to_string())).into());
                     }
                 }
             });
-            
+
             || ()
         });
     }
 
-    
     let open_drawer = use_state(|| false);
 
     let toggle_drawer = {
@@ -391,24 +384,44 @@ pub fn Content() -> Html {
     };
 
     let update_cell_content = {
-        let table_handle = table_handle.clone(); // Clone if necessary for use inside closure
-        let table = (*table).clone(); // Dereference Rc and clone Table
-    
-        move |row_idx: usize, col_idx: usize, new_content: Vec<String>| {
-            let mut updated_table = table.clone(); // Clone the current table state
-            
-            // Ensure the indices are within valid bounds
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
+        let table = (*table).clone();
+
+        Rc::new(move |row_idx: usize, col_idx: usize, new_content: Vec<String>| {
+            let mut updated_table = table.clone();
+
             if row_idx < updated_table.data.len() && col_idx < updated_table.data[row_idx].len() {
-                updated_table.data[row_idx][col_idx].content = new_content; // Update the specific cell content
-                table_handle.set(updated_table); // Set the updated table back to the state
+                updated_table.data[row_idx][col_idx].content = new_content;
+                table_handle.set(updated_table.clone());
+
+                spawn_local({
+                    let tables_handle = tables_handle.clone();
+                    let table_handle = table_handle.clone();
+                    async move {
+                        match update_table(updated_table.clone()).await {
+                            Ok(_) => {
+                                match fetch_tables().await {
+                                    Ok(res_tables) => {
+                                        let tables_struct = Tables { tables: res_tables.clone() };
+                                        tables_handle.set(tables_struct);
+                                        if let Some(first_table) = res_tables.first() {
+                                            table_handle.set(first_table.clone());
+                                        }
+                                    },
+                                    Err(_) => {}
+                                }
+                            },
+                            Err(_) => {}
+                        }
+                    }
+                });
             } else {
-                // Log the error or handle it accordingly
                 web_sys::console::log_1(&format!("Index out of bounds: row_idx={}, col_idx={}", row_idx, col_idx).into());
             }
-        }
+        })
     };
 
-    // open file modal
     let is_file_modal = use_state(|| false);
 
     let toggle_file_modal = {
@@ -418,7 +431,6 @@ pub fn Content() -> Html {
         }
     };
 
-    // open subtask modal
     let is_subtask_modal = use_state(|| false);
 
     let toggle_subtask_modal = {
@@ -428,20 +440,238 @@ pub fn Content() -> Html {
         }
     };
 
-    // handle both modal
     let toggle_modal = {
         let toggle_subtask_modal = toggle_subtask_modal.clone();
         let toggle_file_modal = toggle_file_modal.clone();
-        move |modal_type:String| {
-            if *modal_type == *"file" {
+        move |modal_type: String| {
+            if modal_type == "file" {
                 toggle_file_modal(());
-            }
-            else {
+            } else {
                 toggle_subtask_modal(());
             }
         }
     };
 
+    let col_id: UseStateHandle<Option<usize>> = use_state(|| None);
+    let new_name: UseStateHandle<String> = use_state(|| "".to_string()); 
+    let new_type: UseStateHandle<String> = use_state(|| "".to_string()); 
+
+
+    let on_save_click = {
+        let col_id = col_id.clone();
+        let new_name = new_name.clone();
+        let new_type = new_type.clone();
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
+    
+        Callback::from(move |_: MouseEvent| {
+            log::info!("Saving new type: {}", *new_type);
+    
+            if let Some(col_id_value) = *col_id {
+                let mut table_clone = (*table_handle).clone(); // Create a mutable clone of the table
+    
+                if col_id_value < table_clone.data[0].len() {
+                    for row in &mut table_clone.data { // Update entire column with new content type
+                        row[col_id_value].content_type = ContentType::from(new_type.clone());
+                    }
+                    table_clone.data[0][col_id_value].content = vec![new_name.clone().to_string()];
+    
+                    // Correctly set state handle
+                    col_id.set(None);
+                    web_sys::console::log_1(&format!("Updated Table:{:?}", table_clone.clone()).into());
+    
+                    let tables_handle_clone = tables_handle.clone();
+                    let table_handle_clone = table_handle.clone();
+                    let table_clone_async = table_clone.clone();
+                    spawn_local(async move {
+                        match update_table(table_clone_async).await {
+                            Ok(_) => {
+                                match fetch_tables().await {
+                                    Ok(tables) => {
+                                        let tables_struct = Tables { tables: tables.clone() };
+                                        tables_handle_clone.set(tables_struct);
+    
+                                        if let Some(first_table) = tables.first() {
+                                            table_handle_clone.set(first_table.clone());
+                                        }
+                                    },
+                                    Err(_e) => {
+                                        // Handle error
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                // Handle error
+                                // log::error!("Failed to update table: {}", e.as_string().unwrap_or_else(|| "Unknown error".to_string()));
+                            }
+                        }
+                    });
+                } else {
+                    log::warn!("Column index out of bounds");
+                }
+            } else {
+                log::warn!("col_id is None");
+            }
+        })
+    };
+
+
+    let on_input_change = {
+        let new_name = new_name.clone();
+        move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            new_name.set(input.value());
+        }
+    };
+
+    let on_select_change = {
+        let new_type = new_type.clone();
+        Callback::from(move |e: Event| {
+            let input = e.target_unchecked_into::<web_sys::HtmlSelectElement>();
+            new_type.set(input.value());
+            
+        })
+    };
+
+    let insert_column = {
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
+    
+        Rc::new(move |col_idx: usize, position: &str| {
+            let mut updated_table = (*table_handle).clone();
+    
+            if col_idx < updated_table.data[0].len() {
+                for row in &mut updated_table.data {
+                    let new_cell = Cell {
+                        content_type: if row.is_empty() { ContentType::Text } else { row[col_idx].content_type.clone() }, // copy the content type from the adjacent column if not header row
+                        content: vec!["".to_string()],
+                    };
+    
+                    if position == "left" {
+                        row.insert(col_idx, new_cell);
+                    } else {
+                        row.insert(col_idx + 1, new_cell);
+                    }
+                }
+    
+                table_handle.set(updated_table.clone());
+    
+                spawn_local({
+                    let tables_handle = tables_handle.clone();
+                    let table_handle = table_handle.clone();
+                    async move {
+                        match update_table(updated_table.clone()).await {
+                            Ok(_) => {
+                                match fetch_tables().await {
+                                    Ok(res_tables) => {
+                                        let tables_struct = Tables { tables: res_tables.clone() };
+                                        tables_handle.set(tables_struct);
+                                        if let Some(first_table) = res_tables.first() {
+                                            table_handle.set(first_table.clone());
+                                        }
+                                    },
+                                    Err(_) => {}
+                                }
+                            },
+                            Err(_) => {}
+                        }
+                    }
+                });
+            }
+        })
+    } as Rc<dyn Fn(usize, &str)>;
+
+    let insert_row = {
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
+    
+        Rc::new(move || {
+            // Clone the current table data
+            let mut updated_table = (*table_handle).clone();
+    
+            // Assuming each row has the same number of columns
+            if let Some(first_row) = updated_table.data.first() {
+                let num_columns = first_row.len(); 
+    
+                // Create a new row with empty cells
+                let new_row: Vec<Cell> = (0..num_columns)
+                    .map(|_| Cell {
+                        content_type: ContentType::Text,
+                        content: vec!["".to_string()],
+                    })
+                    .collect();
+    
+                // Append the new row to the table data
+                updated_table.data.push(new_row);
+    
+                // Update the state
+                table_handle.set(updated_table.clone());
+    
+                spawn_local({
+                    let tables_handle = tables_handle.clone();
+                    let table_handle = table_handle.clone();
+                    async move {
+                        match update_table(updated_table.clone()).await {
+                            Ok(_) => {
+                                match fetch_tables().await {
+                                    Ok(res_tables) => {
+                                        let tables_struct = Tables { tables: res_tables.clone() };
+                                        tables_handle.set(tables_struct);
+                                        if let Some(first_table) = res_tables.first() {
+                                            table_handle.set(first_table.clone());
+                                        }
+                                    },
+                                    Err(_) => {}
+                                }
+                            },
+                            Err(_) => {}
+                        }
+                    }
+                });
+            }
+        })
+    } as Rc<dyn Fn()>;
+
+    let delete_column = Rc::new({
+        let table_handle = table_handle.clone();
+        let tables_handle = tables_handle.clone();
+
+        move |col_idx: usize| {
+            let mut updated_table = (*table_handle).clone();
+
+            if col_idx < updated_table.data[0].len() {
+                for row in &mut updated_table.data {
+                    row.remove(col_idx);
+                }
+
+                table_handle.set(updated_table.clone());
+
+                wasm_bindgen_futures::spawn_local({
+                    let tables_handle = tables_handle.clone();
+                    let table_handle = table_handle.clone();
+                    async move {
+                        match update_table(updated_table.clone()).await {
+                            Ok(_) => {
+                                match fetch_tables().await {
+                                    Ok(res_tables) => {
+                                        let tables_struct = Tables { tables: res_tables.clone() };
+                                        tables_handle.set(tables_struct);
+                                        if let Some(first_table) = res_tables.first() {
+                                            table_handle.set(first_table.clone());
+                                        }
+                                    },
+                                    Err(e) => {}
+                                }
+                            },
+                            Err(e) => {},
+                        }
+                    }
+                });
+            }
+        }
+    }) as Rc<dyn Fn(usize)>;
+
+    
 
     html! {
         <>
@@ -454,80 +684,143 @@ pub fn Content() -> Html {
                             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 h-fit">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" >
+                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
                                             <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                                         </th>
-                                        {for table.data[0].iter().enumerate().map(|(index, header)| {
-                                            let is_open = *open_dropdowns == Some(index);
-                                            html! { 
-                                                <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" 
-                                                    onmouseenter = {
-                                                        let toggle_dropdown = toggle_dropdown.clone();
-                                                        Callback::from(move |_| {
-                                                            toggle_dropdown(Some(index));
-                                                        })
+                                        {
+                                            for table.data[0].iter().enumerate().map(|(index, header)| {
+                                                let is_open = *open_dropdowns == Some(index);
+                                                web_sys::console::log_1(&format!("init_type{:?}", new_type.clone().to_string()).into());
+
+                                                if col_id.as_ref() == Some(&index) {
+                                                    html! {
+                                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
+                                                            <div class="flex items-center gap-2">
+                                                                <input type="text" value={(*new_name).clone()} oninput={on_input_change.clone()} class="min-w-32 max-w-40 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                                                                <div  class="" >
+                                                                    {
+                                                                        html! {
+                                                                            <select value={(*new_type).clone()} onchange={on_select_change.clone()} id="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                                                                <option value="text" selected={*new_type == "text"}>{"Text"}</option>
+                                                                                <option value="number" selected={*new_type == "number"}>{"Number"}</option>
+                                                                                <option value="single_select" selected={*new_type == "single_select"}>{"Single Select"}</option>
+                                                                                <option value="multiple_select" selected={*new_type == "multiple_select"}>{"Multiple Select"}</option>
+                                                                                <option value="date" selected={*new_type == "date"}>{"Date"}</option>
+                                                                                <option value="url" selected={*new_type == "url"}>{"URL"}</option>
+                                                                                <option value="checkbox" selected={*new_type == "checkbox"}>{"Checkbox"}</option>
+                                                                                <option value="attachment" selected={*new_type == "attachment"}>{"Attachment"}</option>
+                                                                                <option value="subtask" selected={*new_type == "subtask"}>{"Subtask"}</option>
+                                                                            </select>
+                                                                        }
+                                                                    }
+                                                                </div>
+                                                                <button onclick={on_save_click.clone()} class="text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm w-full sm:w-auto p-1 text-center dark:border-gray-600 dark:hover:border-gray-700 dark:focus:ring-gray-800"><i class="fas fa-archive"></i></button>
+                                                            </div>
+                                                        </th>
                                                     }
-                                                    onmouseleave={
-                                                        let toggle_dropdown = toggle_dropdown.clone();
-                                                        Callback::from(move |_| {
-                                                            toggle_dropdown(None);
-                                                        })
+                                                } else {
+                                                    html! { 
+                                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600"
+                                                            onmouseenter={
+                                                                let toggle_dropdown = toggle_dropdown.clone();
+                                                                Callback::from(move |_| {
+                                                                    toggle_dropdown(Some(index));
+                                                                })
+                                                            }
+                                                            onmouseleave={
+                                                                let toggle_dropdown = toggle_dropdown.clone();
+                                                                Callback::from(move |_| {
+                                                                    toggle_dropdown(None);
+                                                                })
+                                                            }
+                                                        >
+                                                            <div class="flex gap-x-2">
+                                                                <DisplayCellIcon content_type={header.content_type.clone()} />
+                                                                {header.content[0].clone()}
+                                                                <i class="fas fa-sort-desc mb-1"></i>
+                                                                <ColumnDropdown 
+                                                                    column_index={index} 
+                                                                    is_open={is_open} 
+                                                                    set_col_id={Callback::from({
+                                                                        let col_id = col_id.clone();
+                                                                        let new_name = new_name.clone();
+                                                                        let col_name = header.content[0].clone(); 
+                                                                        let col_type = header.content_type.clone();
+                                                                        let new_type = new_type.clone(); // Clone here
+                                        
+                                                                        move |id: Option<String>| {
+                                                                            col_id.set(id.clone().and_then(|id_str| id_str.parse::<usize>().ok()));
+                                        
+                                                                            if id.is_some() {
+                                                                                new_name.set(col_name.clone());
+                                                                                new_type.set(col_type.clone().to_string()); // Convert col_type to String
+                                                                            }
+                                                                        }
+                                                                    })}
+                                                                    insert_column={insert_column.clone()}
+                                                                    delete_column={delete_column.clone()}
+                                                                />
+                                                            </div>
+                                                        </th>
                                                     }
-                                                >
-                                                    <div class="flex gap-x-2">
-                                                        <DisplayCellIcon content_type={header.content_type.clone()} />
-                                                        {header.content[0].clone()}
-                                                        <i class="fas fa-sort-desc mb-1"></i>
-                                                        <ColumnDropdown column_index={index} is_open={is_open}/>
-                                                    </div>
-                                                </th> 
-                                            }
-                                        })}
+                                                }
+                                            })
+                                        }
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
-                                        <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700 ">
-                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600" >
+                                {
+                                    for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
+                                        <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700">
+                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
                                                 <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                                             </th>
-                                            {for row.iter().enumerate().map(|(col_idx, cell)| html! { 
-                                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white border-r border-gray-600">
-                                                    <EditableCell
-                                                        content_type={cell.content_type.clone()}
-                                                        content={cell.content.clone()}
-                                                        toggle_modal={toggle_modal.clone()}
-                                                        on_save={Callback::from({
-                                                            let update_cell_content = update_cell_content.clone();
-                                                            move |new_content: Vec<String>| {
-                                                                update_cell_content(row_idx + 1, col_idx, new_content);
-                                                            }
-                                                        })}
-                                                    />
-                                                </th> 
-                                            })}
+                                            {
+                                                for row.iter().enumerate().map(|(col_idx, cell)| html! {
+                                                    <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white border-r border-gray-600">
+                                                        <EditableCell
+                                                            content_type={cell.content_type.clone()}
+                                                            content={cell.content.clone()}
+                                                            toggle_modal={toggle_modal.clone()}
+                                                            on_save={Callback::from({
+                                                                let update_cell_content = update_cell_content.clone();
+                                                                move |new_content: Vec<String>| {
+                                                                    update_cell_content(row_idx + 1, col_idx, new_content);
+                                                                }
+                                                            })}
+                                                        />
+                                                    </td>
+                                                })
+                                            }
                                         </tr>
-                                    })}
+                                    })
+                                }
                                 </tbody>
                             </table>
-                            <div class="w-full bg-gray-800 hover:bg-gray-700 text-white cursor-pointer text-sm text-center py-4 border-r border-gray-600">
+                            <div 
+                                onclick={
+                                    let insert_row = insert_row.clone();
+                                    Callback::from(move |_| insert_row())
+                                } 
+                                class="w-full bg-gray-800 hover:bg-gray-700 text-white cursor-pointer text-sm text-center py-4 border-r border-gray-600"
+                            >
                                 <i class="fas fa-plus"></i>
                             </div>
                         </div>
                         <div class="w-20 bg-gray-700 hover:bg-gray-500 text-white cursor-pointer text-sm text-center py-4"
-                            onclick = {
-                                let toggle_drawer = toggle_drawer.clone();
-                                Callback::from(move |_: MouseEvent| {
-                                    toggle_drawer(());
-                                })
-                            }
+                            onclick= {
+                                let insert_column = insert_column.clone();
+                                let col_id = table.data[0].len()-1;
+                                Callback::from(move |_| insert_column(col_id, "right"))
+                            } 
                         ><i class="fas fa-plus"></i></div>
                     </div>
                 </div>
                 <Drawer is_open={*open_drawer} toggle_drawer={toggle_drawer}/>
-                </div>
-                <AddFileModal is_open={*is_file_modal} toggle_modal={toggle_file_modal.clone()}/>
-                <SubtaskModal is_open={*is_subtask_modal} toggle_modal={toggle_subtask_modal.clone()}/>
+            </div>
+            <AddFileModal is_open={*is_file_modal} toggle_modal={toggle_file_modal.clone()}/>
+            <SubtaskModal is_open={*is_subtask_modal} toggle_modal={toggle_subtask_modal.clone()}/>
         </>
     }
 }
+
