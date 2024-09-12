@@ -34,16 +34,12 @@ pub fn Dropdown(props: &DropdownProps) -> Html {
                         </div>
                     </li>
                     <li>
-                        <a class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
-                            <i class="fas fa-cogs"></i>
-                            <span class="text-sm font-medium">{"Design"}</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">
+                        <div 
+                            class="cursor-pointer flex space-x-2 items-center px-5 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white"
+                        >
                             <i class="fa fa-clone"></i>
                             <span class="text-sm font-medium">{"Duplicate"}</span>
-                        </a>
+                        </div>
                     </li>
                     <li>
                         <div onclick={delete_table.clone()} class="flex space-x-2 items-center px-5 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white">

@@ -51,14 +51,6 @@ fn display_cell_icon(props: &DisplayCellIconProps) -> Html {
     }
 }
 
-#[derive(PartialEq, Properties, Clone)]
-pub struct EditableCellProps {
-    pub content_type: ContentType,
-    pub content: Vec<String>,
-    pub on_save: Callback<Vec<String>>,
-    pub toggle_modal: Callback<String>
-}
-
 // fetch tables
 pub async fn fetch_tables() -> Result<Vec<Table>, JsError> {
     
@@ -143,12 +135,37 @@ pub async fn delete_table_func(table_id: String) -> Result<(), JsError> {
 }
 
 
+#[derive(PartialEq, Properties, Clone)]
+pub struct EditableCellProps {
+    pub content_type: ContentType,
+    pub content: Vec<String>,
+    pub on_save: Callback<Vec<String>>,
+    pub toggle_modal: Callback<String>
+}
+
+
 #[function_component(EditableCell)]
 fn editable_cell(props: &EditableCellProps) -> Html {
+    let content_state = use_state(|| props.content.clone());
+
+    // Use effect to update content_state when props.content changes
+    {
+        let content_state = content_state.clone();
+        let new_content = props.content.clone();
+    
+        use_effect_with(props.content.clone(), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                content_state.set(new_content);
+            });
+    
+            || ()
+        });
+    }
+
+    let is_editing = use_state(|| false);
     let props = props.clone();
     let EditableCellProps { content_type, content, on_save, toggle_modal } = props.clone();
     let is_editing = use_state(|| false);
-    let content_state = use_state(|| content.clone());
     
     let toggle_editing = {
         let is_editing = is_editing.clone();
@@ -321,7 +338,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                     },
                     _ => html! {
                         <div  onclick={toggle_editing} class="min-w-20 min-h-4 cursor-pointer">
-                            { &content_state[0] }
+                            { &(*content_state)[0] }
                         </div>
                     }
                 }}
@@ -405,9 +422,10 @@ pub fn content() -> Html {
                                     Ok(res_tables) => {
                                         let tables_struct = Tables { tables: res_tables.clone() };
                                         tables_handle.set(tables_struct);
-                                        if let Some(first_table) = res_tables.first() {
-                                            table_handle.set(first_table.clone());
-                                        }
+                                        // if let Some(first_table) = res_tables.first() {
+                                        //     table_handle.set(first_table.clone());
+                                        // }
+                                        table_handle.set(updated_table.clone());
                                     },
                                     Err(_) => {}
                                 }
@@ -456,7 +474,6 @@ pub fn content() -> Html {
     let new_name: UseStateHandle<String> = use_state(|| "".to_string()); 
     let new_type: UseStateHandle<String> = use_state(|| "".to_string()); 
 
-
     let on_save_click = {
         let col_id = col_id.clone();
         let new_name = new_name.clone();
@@ -484,16 +501,19 @@ pub fn content() -> Html {
                     let table_handle_clone = table_handle.clone();
                     let table_clone_async = table_clone.clone();
                     spawn_local(async move {
-                        match update_table(table_clone_async).await {
+                        match update_table(table_clone_async.clone()).await {
                             Ok(_) => {
+                                // Set the updated table as the current table
+                                table_handle_clone.set(table_clone.clone());
+    
                                 match fetch_tables().await {
                                     Ok(tables) => {
                                         let tables_struct = Tables { tables: tables.clone() };
                                         tables_handle_clone.set(tables_struct);
+                                        table_handle_clone.set(table_clone_async.clone());
     
-                                        if let Some(first_table) = tables.first() {
-                                            table_handle_clone.set(first_table.clone());
-                                        }
+                                        // if let Some(first_table) = tables.first() {
+                                        // }
                                     },
                                     Err(_e) => {
                                         // Handle error
@@ -566,9 +586,10 @@ pub fn content() -> Html {
                                     Ok(res_tables) => {
                                         let tables_struct = Tables { tables: res_tables.clone() };
                                         tables_handle.set(tables_struct);
-                                        if let Some(first_table) = res_tables.first() {
-                                            table_handle.set(first_table.clone());
-                                        }
+                                        // if let Some(first_table) = res_tables.first() {
+                                        //     table_handle.set(first_table.clone());
+                                        // }
+                                        table_handle.set(updated_table.clone());
                                     },
                                     Err(_) => {}
                                 }
@@ -589,14 +610,12 @@ pub fn content() -> Html {
             // Clone the current table data
             let mut updated_table = (*table_handle).clone();
     
-            // Assuming each row has the same number of columns
-            if let Some(first_row) = updated_table.data.first() {
-                let num_columns = first_row.len(); 
-    
-                // Create a new row with empty cells
-                let new_row: Vec<Cell> = (0..num_columns)
-                    .map(|_| Cell {
-                        content_type: ContentType::Text,
+            // Assuming the first row is the header
+            if let Some(header_row) = updated_table.data.first() {
+                // Create a new row by cloning the content_type and initializing empty content for each cell
+                let new_row: Vec<Cell> = header_row.iter()
+                    .map(|header_cell| Cell {
+                        content_type: header_cell.content_type.clone(),
                         content: vec!["".to_string()],
                     })
                     .collect();
@@ -617,9 +636,10 @@ pub fn content() -> Html {
                                     Ok(res_tables) => {
                                         let tables_struct = Tables { tables: res_tables.clone() };
                                         tables_handle.set(tables_struct);
-                                        if let Some(first_table) = res_tables.first() {
-                                            table_handle.set(first_table.clone());
-                                        }
+                                        // if let Some(first_table) = res_tables.first() {
+                                        //     table_handle.set(first_table.clone());
+                                        // }
+                                        table_handle.set(updated_table.clone());
                                     },
                                     Err(_) => {}
                                 }
@@ -631,6 +651,7 @@ pub fn content() -> Html {
             }
         })
     } as Rc<dyn Fn()>;
+    
 
     let delete_column = Rc::new({
         let table_handle = table_handle.clone();

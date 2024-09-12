@@ -155,9 +155,9 @@ pub fn Sidebar() -> Html {
                                         // Use the set method provided by the atom handle
                                         tables_handle_clone.borrow_mut().set(tables_struct);
     
-                                        if let Some(first_table) = tables.first() {
-                                            table_handle_clone.borrow_mut().set(new_table.clone());
-                                        }
+                                        // if let Some(first_table) = tables.first() {
+                                        table_handle_clone.borrow_mut().set(new_table.clone());
+                                        // }
                                         // renaming_id_handle.set(None);
                                     },
                                     Err(_e) => {
@@ -190,6 +190,8 @@ pub fn Sidebar() -> Html {
         }
     };
 
+    
+
     html! {
         <aside id="default-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform sm:translate-x-0 border-r-[1px] border-gray-600" aria-label="Sidebar">
             <div class="h-full py-4 overflow-y-auto dark:bg-[#191919]">
@@ -203,7 +205,7 @@ pub fn Sidebar() -> Html {
                 <hr class="border-gray-600 my-2"/>
                 <ul class="space-y-2 font-medium px-3">
                     <div
-                        class="flex items-center justify-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-[#202020] group border-[1px] border-gray-600"
+                        class="cursor-pointer flex items-center justify-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-[#202020] group border-[1px] border-gray-600"
                         onclick={create_table_onclick}
                     >
                         <i class="fas fa-plus"></i>
