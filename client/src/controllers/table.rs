@@ -75,12 +75,12 @@ impl Default for Table {
     fn default() -> Self {
         Table {
             id: "abc".to_string(),
-            title: "Table 1".to_string(),
+            title: "Sample Table".to_string(),
             data: vec![
                 vec![
-                    Cell { content: vec!["1".to_string()], content_type: ContentType::Text },
-                    Cell { content: vec!["2".to_string()], content_type: ContentType::Number },
-                    Cell { content: vec!["3".to_string()], content_type: ContentType::SingleSelect },
+                    Cell { content: vec!["Label".to_string()], content_type: ContentType::Text },
+                    Cell { content: vec!["Number".to_string()], content_type: ContentType::Number },
+                    Cell { content: vec!["Status".to_string()], content_type: ContentType::SingleSelect },
                     
                 ],
             ],
@@ -121,12 +121,12 @@ impl Default for Tables {
             tables: vec![
                 Table {
                     id: "abcd".to_string(),
-                    title: "Table 1".to_string(),
+                    title: "Sample Table".to_string(),
                     data: vec![
                         vec![
-                            Cell { content: vec!["1".to_string()], content_type: ContentType::Text },
-                            Cell { content: vec!["2".to_string()], content_type: ContentType::Number },
-                            Cell { content: vec!["3".to_string()], content_type: ContentType::SingleSelect },
+                            Cell { content: vec!["Label".to_string()], content_type: ContentType::Text },
+                            Cell { content: vec!["Number".to_string()], content_type: ContentType::Number },
+                            Cell { content: vec!["Status".to_string()], content_type: ContentType::SingleSelect },
                             
                         ],
                     ],

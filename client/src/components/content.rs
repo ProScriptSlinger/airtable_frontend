@@ -18,6 +18,7 @@ use std::rc::Rc;
 use wasm_bindgen::JsError;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement,HtmlSelectElement , MouseEvent};
+use std::collections::HashSet;
 
 #[derive(Properties, PartialEq)]
 pub struct DisplayCellIconProps {
@@ -82,9 +83,9 @@ pub async fn create_table(table_title: String) -> Result<(), JsError> {
                 Cell { content: vec!["Status".to_string()], content_type: ContentType::SingleSelect },
             ],
             vec![
-                Cell { content: vec!["default".to_string()], content_type: ContentType::Text },
-                Cell { content: vec!["default".to_string()], content_type: ContentType::Number },
-                Cell { content: vec!["default".to_string()], content_type: ContentType::SingleSelect }
+                Cell { content: vec!["".to_string()], content_type: ContentType::Text },
+                Cell { content: vec!["".to_string()], content_type: ContentType::Number },
+                Cell { content: vec!["".to_string()], content_type: ContentType::SingleSelect }
             ],
         ],
     };
@@ -287,24 +288,24 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                             <input type="number"  value={content_state[0].clone()} oninput={handle_change} class="min-w-32 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
                         ContentType::Date => html! {
-                            <input type="date" value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="date" value={content_state[0].clone()} oninput={handle_change}  class="bg-gray-50 max-w-50  border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         },
                         ContentType::Checkbox => html! {
                             <input id="default-checkbox" type="checkbox" checked={content_state[0] == "true"} onchange={handle_checkbox_change}  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
                         },
                         _ => html! {
-                            <input type="checkbox" value={content_state[0].clone()} oninput={handle_change} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                            <input type="checkbox" value={content_state[0].clone()} oninput={handle_change} class="min-w-20 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                         }
                     }
                 }
                 <button onclick={handle_save} class="text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm w-full sm:w-auto p-1 text-center dark:border-gray-600 dark:hover:border-gray-700 dark:focus:ring-gray-800"><i class="fas fa-archive"></i></button>
             </div>
         } else {
-            <div class="cursor-pointer">
+            <div class="cursor-pointer w-fit-content ">
                 {match content_type {
                     ContentType::SingleSelect | ContentType::MultipleSelect => {
                         html! {
-                            <div onclick={toggle_editing}>
+                            <div onclick={toggle_editing} class="min-w-20 min-h-8">
                                 { for content_state.iter().enumerate().map(|(index, value)| {
                                     let (bg_class, text_class, dark_bg_class, dark_text_class) = badge_classes[index % badge_classes.len()];
                                     html! {
@@ -318,7 +319,8 @@ fn editable_cell(props: &EditableCellProps) -> Html {
                                             "me-2",
                                             "px-2.5",
                                             "py-0.5",
-                                            "rounded"
+                                            "rounded",
+                                            "cursor-pointer"
                                         )}>
                                             {value.clone()}
                                         </span>
@@ -348,6 +350,7 @@ fn editable_cell(props: &EditableCellProps) -> Html {
 }
 #[function_component(Content)]
 pub fn content() -> Html {
+    
     let table = use_atom_value::<Table>();
     let tables = use_atom_value::<Tables>();
     let open_dropdowns = use_state::<Option<usize>, _>(|| None);
@@ -693,6 +696,65 @@ pub fn content() -> Html {
     }) as Rc<dyn Fn(usize)>;
 
     
+    let checked_rows = use_state(|| HashSet::new());
+
+    let handle_checkbox_change = {
+        let checked_rows = checked_rows.clone();
+        move |row_idx: usize| {
+            let mut set = (*checked_rows).clone();
+            if set.contains(&row_idx) {
+                set.remove(&row_idx);
+            } else {
+                set.insert(row_idx);
+            }
+            checked_rows.set(set);
+        }
+    };
+
+    let delete_checked_rows = {
+        let table = table.clone();
+        let checked_rows = checked_rows.clone();
+        let update_table = update_table.clone();
+        move |_| { // Accept the event argument
+            let mut new_data = Vec::with_capacity(table.data.len());
+            for (i, row) in table.data.iter().enumerate() {
+                if i == 0 || !checked_rows.contains(&(i - 1)) {
+                    new_data.push(row.clone());
+                }
+            }
+            let new_table = Table {
+                id: table.id.clone(),
+                title: table.title.clone(),  // Make sure to copy any other necessary fields
+                data: new_data,
+                // add any other fields as necessary
+            };
+            
+            let tables_handle = tables_handle.clone();
+            let table_handle = table_handle.clone();
+            let checked_rows = checked_rows.clone();
+    
+            spawn_local(async move {
+                match update_table(new_table.clone()).await {
+                    Ok(_) => {
+                        match fetch_tables().await {
+                            Ok(res_tables) => {
+                                let tables_struct = Tables { tables: res_tables.clone() };
+                                tables_handle.set(tables_struct);
+                                table_handle.set(new_table);
+                                checked_rows.set(HashSet::new())
+                            },
+                            Err(e) => {
+                                // log::error!("Failed to fetch tables: {:?}", e);
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        // log::error!("Failed to update table: {:?}", e);
+                    }
+                }
+            });
+        }
+    };
 
     html! {
         <>
@@ -705,8 +767,13 @@ pub fn content() -> Html {
                             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 h-fit">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
-                                            <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                                        <th scope="col" class="px-6 py-3 w-[50px]  cursor-pointer relative border-r border-gray-600">
+                                            <button 
+                                                onclick={delete_checked_rows.clone()} 
+                                                class="text-white border border-gray-600 hover:bg-gray-600 hover:border-gray-800 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm p-2 text-center dark:border-gray-600 dark:hover:border-gray-700 dark:focus:ring-gray-800"
+                                            >
+                                                <i class="fas fa-trash text-gray-300"></i>
+                                            </button>
                                         </th>
                                         {
                                             for table.data[0].iter().enumerate().map(|(index, header)| {
@@ -715,7 +782,7 @@ pub fn content() -> Html {
 
                                                 if col_id.as_ref() == Some(&index) {
                                                     html! {
-                                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
+                                                        <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600 flex items-center">
                                                             <div class="flex items-center gap-2">
                                                                 <input type="text" value={(*new_name).clone()} oninput={on_input_change.clone()} class="min-w-32 max-w-40 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
                                                                 <div  class="" >
@@ -755,7 +822,7 @@ pub fn content() -> Html {
                                                                 })
                                                             }
                                                         >
-                                                            <div class="flex gap-x-2">
+                                                            <div class="flex gap-x-2 items-center">
                                                                 <DisplayCellIcon content_type={header.content_type.clone()} />
                                                                 {header.content[0].clone()}
                                                                 <i class="fas fa-sort-desc mb-1"></i>
@@ -793,8 +860,18 @@ pub fn content() -> Html {
                                 {
                                     for table.data[1..].iter().enumerate().map(|(row_idx, row)| html! {
                                         <tr class="odd:bg-white odd:dark:bg-gray-900 even:bg-gray-50 even:dark:bg-gray-800 border-b dark:border-gray-700">
-                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600">
-                                                <input id="default-checkbox" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"/>
+                                            
+                                            <th scope="col" class="px-6 py-3 cursor-pointer relative border-r border-gray-600 flex justify-center h-full items-center">
+                                                <input 
+                                                    id="default-checkbox" 
+                                                    type="checkbox" 
+                                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                                    checked={checked_rows.contains(&(row_idx))}
+                                                    onclick={
+                                                        let handle_checkbox_change = handle_checkbox_change.clone();
+                                                        Callback::from(move |_| handle_checkbox_change(row_idx))
+                                                    }
+                                                />
                                             </th>
                                             {
                                                 for row.iter().enumerate().map(|(col_idx, cell)| html! {
@@ -838,6 +915,7 @@ pub fn content() -> Html {
                     </div>
                 </div>
                 <Drawer is_open={*open_drawer} toggle_drawer={toggle_drawer}/>
+                
             </div>
             <AddFileModal is_open={*is_file_modal} toggle_modal={toggle_file_modal.clone()}/>
             <SubtaskModal is_open={*is_subtask_modal} toggle_modal={toggle_subtask_modal.clone()}/>
