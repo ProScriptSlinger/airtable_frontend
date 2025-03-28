@@ -91,10 +91,6 @@ Before jumping into the code, there are a few prerequisites.
 
 File an issue via [GitHub Issues](https://github.com/dgonzo27/rust-yew-tailwind/issues).
 
-## Reporting Security Vulnerabilities and Security Bugs
-
-Security vulnerabilities and bugs should be reported privately, via email, to the maintainers of this repository. Please contact [Dylan Gonzales](mailto:dylangonzales247@gmail.com). For more information, visit the [security guidelines](./SECURITY.md).
-
 ## Contributing
 
 Before contributing to this repository, please review the [code of conduct](./CODE_OF_CONDUCT.md).
